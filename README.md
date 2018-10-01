@@ -1,5 +1,7 @@
 # Migration utility for moving from Gitlab to Gogs / Gitea
 
+I'm updating this tool, to use it now edit it and put your gogs/gitlab token on lines 7 and 8, then run as above.
+
 This tools provides an automated way to copy all repositories in a namespaces from Gitlab to Gogs / Gitea. 
 All tags and branches are copied. 
 Organizations in Gogs are supported as well. 
