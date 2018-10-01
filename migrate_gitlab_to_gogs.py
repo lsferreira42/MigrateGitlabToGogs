@@ -2,8 +2,10 @@ import requests
 import json
 import subprocess
 import os
-
 import argparse
+
+gogs_token = "XXXXXXXXXX"
+gitlab_token = "XXXXXXXXXXX" 
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--source_namespace', 
@@ -28,64 +30,37 @@ if args.add_to_private:
 else:
     print('to the organisation %s'%args.add_to_organization, end='')
 print(' as private repositories.')
-input('Hit any key to continue!')
 
 gogs_url = args.target_repo + "/api/v1"
-gitlab_url = args.source_repo + '/api/v3'
+gitlab_url = args.source_repo + '/api/v4'
 
-gogs_token = input(("\n\nPlease provide the gogs access token which we use to access \n"
-                    "your account. This is NOT your password! Go to \n"
-                    "/user/settings/applications\n"
-                    "and click on 'Create new token', and copy and paste the \n"
-                    "resulting token which is shown afterwards. It should look \n"
-                    "like 3240823dfsaefwio328923490832a.\n\ngogs_token=").format(args.target_repo))
-assert len(gogs_token)>0, 'The gogs token cannot be empty!'
-
-
-gitlab_token = input(("\n\nToken to access your GITLAB account. This is NOT your password! Got to \n"
-                    "{}/profile/account \n"
-                    "and copy the value in section 'Private token'. It should \n"
-                    "look like du8dfsJlfEWFJAFhs\n"
-                    "\ngitlab_token=").format(args.source_repo))
-assert len(gitlab_token)>0, 'The gitlab token cannot be empty!'
-
-#tmp_dir = '/home/simon/tmp/gitlab_gogs_migration'
-#print('Using temporary directory %s'%tmp_dir)
-## Create temporary directory
-#try:
-    #os.makedirs(tmp_dir)
-    #print('Created temporary directory %s'%tmp_dir)
-#except FileExistsError as e:
-    #pass
-#except Exception as e:
-    #raise e
-
-#os.chdir(tmp_dir)
+gogs_token = "8818168595d87f97f99ac45c57715a7f56a1b6fd"
+gitlab_token = "-53RSWEqoo_Vg9x-Hpg9" 
 
 print('Getting existing projects from namespace %s...'%args.source_namespace)
 s = requests.Session()
 page_id = 1
 finished = False
 project_list = []
+headers = { "PRIVATE-TOKEN": gitlab_token }
 while not finished:
     print('Getting page %s'%page_id)
-    res = s.get(gitlab_url + '/projects?private_token=%s&page=%s'%(gitlab_token,page_id))
+    res = s.get(gitlab_url + '/projects?page={0}'.format(page_id), headers=headers)
     assert res.status_code == 200, 'Error when retrieving the projects. The returned html is %s'%res.text
     project_list += json.loads(res.text)
     if len(json.loads(res.text)) < 1:
         finished = True
     else:
         page_id += 1
+print (project_list)
+
 
 filtered_projects = list(filter(lambda x: x['path_with_namespace'].split('/')[0]==args.source_namespace, project_list))
+
 
 print('\n\nFinished preparations. We are about to migrate the following projects:')
 
 print('\n'.join([p['path_with_namespace'] for p in filtered_projects]))
-
-if 'yes' != input('Do you want to continue? (please answer yes or no) '):
-    print('\nYou decided to cancel...')
-
 
 for i in range(len(filtered_projects)):
     src_name = filtered_projects[i]['name']
@@ -94,8 +69,6 @@ for i in range(len(filtered_projects)):
     dst_name = src_name.replace(' ','-')
 
     print('\n\nMigrating project %s to project %s now.'%(src_url,dst_name))
-    if 'yes' != input('Do you want to continue? (please answer yes or no) '):
-        print('\nYou decided to cancel...')
 
     # Create repo 
     if args.add_to_private:
@@ -105,9 +78,6 @@ for i in range(len(filtered_projects)):
                             data=dict(token=gogs_token, name=dst_name, private=True, description=src_description))
     if create_repo.status_code != 201:
         print('Could not create repo %s because of %s'%(src_name,json.loads(create_repo.text)['message']))
-        if 'yes' != input('Do you want to skip this repo and continue with the next? (please answer yes or no) '):
-            print('\nYou decided to cancel...')
-            exit(1)
         continue
     
     dst_info = json.loads(create_repo.text)
@@ -122,6 +92,5 @@ for i in range(len(filtered_projects)):
 
     print('\n\nFinished migration. New project URL is %s'%dst_info['html_url'])
     print('Please open the URL and check if everything is fine.')
-    input('Hit any key to continue!')
     
 print('\n\nEverything finished!\n')
